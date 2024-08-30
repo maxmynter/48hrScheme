@@ -1,10 +1,11 @@
-import Numeric (readOct)
+import Numeric (readFloat, readOct)
 import System.Environment
 import Text.ParserCombinators.Parsec hiding (spaces)
 
 data LispVal
   = Atom String
   | Number Integer
+  | Float Double
   | Character Char
   | String String
   | Bool Bool
@@ -68,7 +69,8 @@ parseNumber = do
     Just 'b' -> parseBinary
     Just 'o' -> parseOctal
     Just 'x' -> parseHexadecimal
-    Nothing -> parseDecimal
+    Just _ -> fail "Unknown number prefix"
+    Nothing -> parseDecimal <|> parseFloat
 
 binToDec :: String -> Integer
 binToDec = foldl (\acc x -> acc * 2 + if x == '0' then 0 else 1) 0
@@ -115,9 +117,9 @@ parseList = List <$> sepBy parseExpr spaces
 
 parseDottedList :: Parser LispVal
 parseDottedList = do
-  head <- endBy parseExpr spaces
-  tail <- char '.' >> spaces >> parseExpr
-  return $ DottedList head tail
+  headElement <- endBy parseExpr spaces
+  tailElement <- char '.' >> spaces >> parseExpr
+  return $ DottedList headElement tailElement
 
 parseQuoted :: Parser LispVal
 parseQuoted = do
@@ -126,7 +128,7 @@ parseQuoted = do
   return $ List [Atom "quote", x]
 
 readExpr :: String -> String
-readExpr input = case parse (spaces >> parseExpr) "lisp" input of
+readExpr input = case parse parseExpr "lisp" input of
   Left err -> "No match: " ++ show err
   Right _ -> "Found value"
 
